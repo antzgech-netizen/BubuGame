@@ -1,1 +1,463 @@
+.racing-game-container {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  border-radius: 20px;
+  padding: 2.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideIn 0.5s ease-out;
+  min-height: 600px;
+}
 
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.racing-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: white;
+}
+
+.racing-header h2 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.racing-header p {
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* Car Selection */
+.car-selection {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.car-selection h3 {
+  color: white;
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+}
+
+.car-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.car-option {
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  font-size: 3rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  backdrop-filter: blur(5px);
+}
+
+.car-option:hover {
+  transform: translateY(-5px) scale(1.1);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.car-option.selected {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: #fbbf24;
+  transform: scale(1.15);
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.6);
+  animation: carBounce 0.5s ease-in-out infinite;
+}
+
+@keyframes carBounce {
+  0%, 100% { transform: scale(1.15) translateY(0); }
+  50% { transform: scale(1.15) translateY(-5px); }
+}
+
+.start-race-btn {
+  padding: 1.5rem 3rem;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1e3a8a;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 8px 25px rgba(251, 191, 36, 0.5);
+}
+
+.start-race-btn:hover {
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 12px 35px rgba(251, 191, 36, 0.7);
+}
+
+/* Countdown */
+.countdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.countdown-number {
+  font-size: 10rem;
+  font-weight: 900;
+  color: #fbbf24;
+  text-shadow: 0 0 50px rgba(251, 191, 36, 0.8);
+  animation: countdownPulse 1s ease-out;
+}
+
+@keyframes countdownPulse {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Race Stats */
+.race-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-item {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.stat-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+/* Race Track */
+.race-track {
+  background: linear-gradient(to bottom, #374151 0%, #1f2937 100%);
+  border-radius: 16px;
+  padding: 2rem 1rem;
+  position: relative;
+  margin-bottom: 2rem;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.track-lane {
+  position: relative;
+  height: 100px;
+  background: linear-gradient(to right, #4b5563 0%, #374151 50%, #4b5563 100%);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.track-lane:last-of-type {
+  margin-bottom: 0;
+}
+
+.lane-label {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 10;
+}
+
+.lane-lines {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    to right,
+    white 0px,
+    white 30px,
+    transparent 30px,
+    transparent 60px
+  );
+  transform: translateY(-50%);
+  opacity: 0.5;
+  animation: moveLanes 1s linear infinite;
+}
+
+@keyframes moveLanes {
+  0% { background-position: 0 0; }
+  100% { background-position: 60px 0; }
+}
+
+.race-car {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 3rem;
+  transition: left 0.05s linear;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+  animation: carShake 0.1s ease-in-out infinite;
+}
+
+@keyframes carShake {
+  0%, 100% { transform: translateY(-50%) rotate(0deg); }
+  25% { transform: translateY(-52%) rotate(-1deg); }
+  75% { transform: translateY(-48%) rotate(1deg); }
+}
+
+.player-car {
+  z-index: 5;
+}
+
+.finish-line {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: repeating-linear-gradient(
+    45deg,
+    white,
+    white 10px,
+    #1f2937 10px,
+    #1f2937 20px
+  );
+  box-shadow: -5px 0 15px rgba(255, 255, 255, 0.5);
+  animation: finishGlow 1s ease-in-out infinite;
+}
+
+@keyframes finishGlow {
+  0%, 100% {
+    box-shadow: -5px 0 15px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow: -5px 0 25px rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Controls */
+.controls {
+  text-align: center;
+}
+
+.accelerate-btn {
+  padding: 1.5rem 3rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.accelerate-btn:active:not(:disabled) {
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 12px 35px rgba(16, 185, 129, 0.7);
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.accelerate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Race Result */
+.race-result {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 3rem 2rem;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: resultPopup 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  min-width: 350px;
+}
+
+@keyframes resultPopup {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0) rotateZ(-180deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotateZ(0deg);
+  }
+}
+
+.race-result h3 {
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.result-details {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.result-details p {
+  margin: 0.8rem 0;
+  font-size: 1.2rem;
+}
+
+.result-details strong {
+  font-size: 1.5rem;
+  color: #fbbf24;
+}
+
+.reward {
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: #fbbf24 !important;
+  margin-top: 1rem !important;
+  animation: coinSpin 1s ease-in-out infinite;
+}
+
+@keyframes coinSpin {
+  0%, 100% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(180deg);
+  }
+}
+
+.play-again-btn {
+  padding: 1.2rem 2.5rem;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1.2rem;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+}
+
+.play-again-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .racing-game-container {
+    padding: 1.5rem;
+  }
+
+  .racing-header h2 {
+    font-size: 2rem;
+  }
+
+  .car-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .car-option {
+    font-size: 2.5rem;
+  }
+
+  .countdown-number {
+    font-size: 6rem;
+  }
+
+  .race-stats {
+    gap: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .track-lane {
+    height: 70px;
+  }
+
+  .race-car {
+    font-size: 2rem;
+  }
+
+  .accelerate-btn {
+    padding: 1.2rem 2rem;
+    font-size: 1.1rem;
+  }
+
+  .race-result {
+    width: 90%;
+    min-width: unset;
+    padding: 2rem 1.5rem;
+  }
+
+  .race-result h3 {
+    font-size: 2rem;
+  }
+}
