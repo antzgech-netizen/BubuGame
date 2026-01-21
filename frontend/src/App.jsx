@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import GebetaGame from './games/GebetaGame';
 import TicTacToe from './games/TicTacToe';
+import MemoryMatch from './games/MemoryMatch';
+import RacingGame from './games/RacingGame';
 import ChatBox from './components/ChatBox';
 import VoiceChat from './components/VoiceChat';
 import LoginScreen from './components/LoginScreen';
@@ -79,8 +81,9 @@ export default function App() {
       <main className="main-content">
         {!currentGame ? (
           <div className="game-selection">
-            <h2>Choose a Game to Play</h2>
+            <h2>🎯 Choose Your Adventure!</h2>
             <div className="game-grid">
+              {/* Existing Games */}
               <div className="game-card" onClick={() => setCurrentGame('gebeta')}>
                 <div className="game-icon">🎲</div>
                 <h3>Gebeta</h3>
@@ -95,25 +98,42 @@ export default function App() {
                 <div className="game-badge">2 Players</div>
               </div>
 
-              <div className="game-card coming-soon">
-                <div className="game-icon">🎯</div>
+              {/* NEW GAMES! */}
+              <div className="game-card" onClick={() => setCurrentGame('memory')}>
+                <div className="game-icon">🧠</div>
                 <h3>Memory Match</h3>
+                <p>Find matching pairs!</p>
+                <div className="game-badge">Brain Game</div>
+              </div>
+
+              <div className="game-card" onClick={() => setCurrentGame('racing')}>
+                <div className="game-icon">🏁</div>
+                <h3>Racing Game</h3>
+                <p>Race to the finish line!</p>
+                <div className="game-badge">Speed Game</div>
+              </div>
+
+              {/* Coming Soon */}
+              <div className="game-card coming-soon">
+                <div className="game-icon">🎨</div>
+                <h3>Drawing Game</h3>
                 <p>Coming Soon!</p>
-                <div className="game-badge">Design Together</div>
+                <div className="game-badge">Creative</div>
               </div>
 
               <div className="game-card coming-soon">
-                <div className="game-icon">🏁</div>
-                <h3>Racing Game</h3>
+                <div className="game-icon">🧩</div>
+                <h3>Puzzle Game</h3>
                 <p>Coming Soon!</p>
-                <div className="game-badge">Design Together</div>
+                <div className="game-badge">Brain Teaser</div>
               </div>
             </div>
 
             <div className="welcome-message">
               <h3>👨‍👦 Welcome to Our Game Room!</h3>
-              <p>Pick a game and invite your family member to play together.</p>
-              <p>💬 Don't forget to chat while playing!</p>
+              <p>🎮 Pick a game and have fun together!</p>
+              <p>💬 Chat and 🎙️ voice call while playing!</p>
+              <p>🪙 Earn coins by winning games!</p>
             </div>
           </div>
         ) : (
@@ -132,6 +152,22 @@ export default function App() {
 
             {currentGame === 'tictactoe' && (
               <TicTacToe 
+                user={user} 
+                onClose={() => setCurrentGame(null)}
+                fetchUser={fetchUser}
+              />
+            )}
+
+            {currentGame === 'memory' && (
+              <MemoryMatch 
+                user={user} 
+                onClose={() => setCurrentGame(null)}
+                fetchUser={fetchUser}
+              />
+            )}
+
+            {currentGame === 'racing' && (
+              <RacingGame 
                 user={user} 
                 onClose={() => setCurrentGame(null)}
                 fetchUser={fetchUser}
