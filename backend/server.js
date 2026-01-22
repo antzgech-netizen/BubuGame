@@ -41,7 +41,25 @@ const authenticateToken = (req, res, next) => {
     return res.status(403).json({ error: "Invalid token" });
   }
 };
+// ==========================================
+// ONLINE STATUS TRACKING
+// ==========================================
 
+// Store online users with heartbeat timestamps
+const onlineUsers = new Map(); // userId -> lastHeartbeat
+
+// Clean up inactive users every 30 seconds
+setInterval(() => {
+  const now = Date.now();
+  const timeout = 15000; // 15 seconds timeout
+  
+  for (const [userId, lastHeartbeat] of onlineUsers.entries()) {
+    if (now - lastHeartbeat > timeout) {
+      onlineUsers.delete(userId);
+      console.log(`👋 User ${userId} went offline`);
+    }
+  }
+}, 30000);
 // ==========================================
 // AUTH ENDPOINTS
 // ==========================================
@@ -117,6 +135,53 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// ==========================================
+// USER STATUS ENDPOINTS
+// ==========================================
+
+app.post("/api/user/heartbeat", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    onlineUsers.set(userId, Date.now());
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Heartbeat error:", err.message);
+    res.status(500).json({ error: "Heartbeat failed" });
+  }
+});
+
+app.get("/api/user/online", authenticateToken, async (req, res) => {
+  try {
+    const onlineUserIds = Array.from(onlineUsers.keys());
+    res.json({ onlineUserIds });
+  } catch (err) {
+    console.error("Get online users error:", err.message);
+    res.status(500).json({ error: "Failed to get online users" });
+  }
+});
+// ==========================================
+// CONTACTS ENDPOINTS
+// ==========================================
+
+app.get("/api/contacts/all", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    const result = await pool.query(
+      `SELECT id, username, coins, created_at
+       FROM users 
+       WHERE id != $1
+       ORDER BY username`,
+      [userId]
+    );
+
+    res.json({ contacts: result.rows });
+  } catch (err) {
+    console.error("Get all contacts error:", err.message);
+    res.status(500).json({ error: "Failed to get contacts" });
+  }
+});
+
 app.get("/api/auth/me", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -162,48 +227,182 @@ app.post("/api/user/add-coins", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to add coins" });
   }
 });
-
 // ==========================================
-// CHAT ENDPOINTS
+// CHAT ENDPOINTS - WhatsApp Style
 // ==========================================
 
-app.get("/api/chat/messages", authenticateToken, async (req, res) => {
+// Get all conversations for a user
+app.get("/api/chat/conversations", authenticateToken, async (req, res) => {
   try {
+    const userId = req.user.userId;
+    
     const result = await pool.query(
-      `SELECT m.id, m.user_id, m.message, m.created_at, u.username
-       FROM chat_messages m
-       JOIN users u ON m.user_id = u.id
-       ORDER BY m.created_at DESC
-       LIMIT 50`
+      `SELECT DISTINCT
+        c.id as conversation_id,
+        CASE 
+          WHEN c.user1_id = $1 THEN c.user2_id 
+          ELSE c.user1_id 
+        END as other_user_id,
+        u.username as other_username,
+        c.last_message_at,
+        (SELECT message FROM chat_messages_new 
+         WHERE conversation_id = c.id 
+         ORDER BY created_at DESC LIMIT 1) as last_message,
+        (SELECT COUNT(*) FROM chat_messages_new 
+         WHERE conversation_id = c.id 
+         AND sender_id != $1 
+         AND created_at > COALESCE(
+           (SELECT last_read_at FROM user_read_status 
+            WHERE user_id = $1 AND conversation_id = c.id),
+           '1970-01-01'
+         )) as unread_count
+      FROM conversations c
+      JOIN users u ON (
+        CASE 
+          WHEN c.user1_id = $1 THEN c.user2_id 
+          ELSE c.user1_id 
+        END = u.id
+      )
+      WHERE c.user1_id = $1 OR c.user2_id = $1
+      ORDER BY c.last_message_at DESC`,
+      [userId]
     );
 
-    res.json({ messages: result.rows.reverse() });
+    res.json({ conversations: result.rows });
+  } catch (err) {
+    console.error("Get conversations error:", err.message);
+    res.status(500).json({ error: "Failed to get conversations" });
+  }
+});
+
+// Get messages for a specific conversation
+app.get("/api/chat/messages/:otherUserId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const otherUserId = parseInt(req.params.otherUserId);
+
+    // Get or create conversation
+    let conversation = await pool.query(
+      `SELECT id FROM conversations 
+       WHERE (user1_id = $1 AND user2_id = $2) 
+       OR (user1_id = $2 AND user2_id = $1)`,
+      [userId, otherUserId]
+    );
+
+    let conversationId;
+    if (conversation.rows.length === 0) {
+      // Create new conversation
+      const newConv = await pool.query(
+        `INSERT INTO conversations (user1_id, user2_id, last_message_at, created_at)
+         VALUES ($1, $2, NOW(), NOW())
+         RETURNING id`,
+        [Math.min(userId, otherUserId), Math.max(userId, otherUserId)]
+      );
+      conversationId = newConv.rows[0].id;
+    } else {
+      conversationId = conversation.rows[0].id;
+    }
+
+    // Get messages
+    const messages = await pool.query(
+      `SELECT m.*, u.username 
+       FROM chat_messages_new m
+       JOIN users u ON m.sender_id = u.id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC
+       LIMIT 200`,
+      [conversationId]
+    );
+
+    res.json({ messages: messages.rows });
   } catch (err) {
     console.error("Get messages error:", err.message);
     res.status(500).json({ error: "Failed to get messages" });
   }
 });
 
+// Send a message
 app.post("/api/chat/send", authenticateToken, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { recipientId, message } = req.body;
+    const senderId = req.user.userId;
 
     if (!message || !message.trim()) {
       return res.status(400).json({ error: "Message required" });
     }
 
-    const result = await pool.query(
-      `INSERT INTO chat_messages (user_id, message, created_at)
-       VALUES ($1, $2, NOW())
-       RETURNING id`,
-      [req.user.userId, message.trim()]
+    // Get or create conversation
+    let conversation = await pool.query(
+      `SELECT id FROM conversations 
+       WHERE (user1_id = $1 AND user2_id = $2) 
+       OR (user1_id = $2 AND user2_id = $1)`,
+      [senderId, recipientId]
     );
 
-    console.log(`💬 ${req.user.username}: ${message.substring(0, 50)}...`);
+    let conversationId;
+    if (conversation.rows.length === 0) {
+      const newConv = await pool.query(
+        `INSERT INTO conversations (user1_id, user2_id, last_message_at, created_at)
+         VALUES ($1, $2, NOW(), NOW())
+         RETURNING id`,
+        [Math.min(senderId, recipientId), Math.max(senderId, recipientId)]
+      );
+      conversationId = newConv.rows[0].id;
+    } else {
+      conversationId = conversation.rows[0].id;
+      
+      // Update last message time
+      await pool.query(
+        `UPDATE conversations SET last_message_at = NOW() WHERE id = $1`,
+        [conversationId]
+      );
+    }
+
+    // Insert message
+    const result = await pool.query(
+      `INSERT INTO chat_messages_new (conversation_id, sender_id, message, created_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING id`,
+      [conversationId, senderId, message.trim()]
+    );
+
+    console.log(`💬 Message from ${senderId} to ${recipientId}`);
     res.json({ success: true, messageId: result.rows[0].id });
   } catch (err) {
     console.error("Send message error:", err.message);
     res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// Mark messages as read
+app.post("/api/chat/mark-read/:otherUserId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const otherUserId = parseInt(req.params.otherUserId);
+
+    const conversation = await pool.query(
+      `SELECT id FROM conversations 
+       WHERE (user1_id = $1 AND user2_id = $2) 
+       OR (user1_id = $2 AND user2_id = $1)`,
+      [userId, otherUserId]
+    );
+
+    if (conversation.rows.length > 0) {
+      const conversationId = conversation.rows[0].id;
+      
+      await pool.query(
+        `INSERT INTO user_read_status (user_id, conversation_id, last_read_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (user_id, conversation_id) 
+         DO UPDATE SET last_read_at = NOW()`,
+        [userId, conversationId]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Mark as read error:", err.message);
+    res.status(500).json({ error: "Failed to mark as read" });
   }
 });
 
@@ -654,7 +853,122 @@ app.post("/api/gebeta/finish", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to finish match" });
   }
 });
+async function initializeDatabase() {
+  try {
+    // Create users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        coins INTEGER DEFAULT 100,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
+    // Create conversations table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        user1_id INTEGER REFERENCES users(id),
+        user2_id INTEGER REFERENCES users(id),
+        last_message_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user1_id, user2_id)
+      )
+    `);
+
+    // Create chat messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages_new (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER REFERENCES conversations(id),
+        sender_id INTEGER REFERENCES users(id),
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Create user read status table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_read_status (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        conversation_id INTEGER REFERENCES conversations(id),
+        last_read_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, conversation_id)
+      )
+    `);
+
+    // Create call history table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS call_history (
+        id SERIAL PRIMARY KEY,
+        caller_id INTEGER REFERENCES users(id),
+        receiver_id INTEGER REFERENCES users(id),
+        duration INTEGER DEFAULT 0,
+        status VARCHAR(20) DEFAULT 'completed',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Keep existing game tables (tictactoe, gebeta, etc.)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tictactoe_invites (
+        id SERIAL PRIMARY KEY,
+        from_user_id INTEGER REFERENCES users(id),
+        to_user_id INTEGER REFERENCES users(id),
+        status VARCHAR(20) DEFAULT 'pending',
+        match_id INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tictactoe_matches (
+        id SERIAL PRIMARY KEY,
+        player1_id INTEGER REFERENCES users(id),
+        player2_id INTEGER REFERENCES users(id),
+        board JSONB DEFAULT '${JSON.stringify(Array(9).fill(null))}'::jsonb,
+        current_turn VARCHAR(1) DEFAULT 'X',
+        winner VARCHAR(1),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gebeta_invites (
+        id SERIAL PRIMARY KEY,
+        from_user_id INTEGER REFERENCES users(id),
+        to_user_id INTEGER REFERENCES users(id),
+        status VARCHAR(20) DEFAULT 'pending',
+        match_id INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gebeta_matches (
+        id SERIAL PRIMARY KEY,
+        player1_id INTEGER REFERENCES users(id),
+        player2_id INTEGER REFERENCES users(id),
+        board JSONB DEFAULT '${JSON.stringify([4,4,4,4,4,4,4,4,4,4,4,4])}'::jsonb,
+        player1_score INTEGER DEFAULT 0,
+        player2_score INTEGER DEFAULT 0,
+        current_player INTEGER,
+        winner INTEGER,
+        finished BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    console.log("✅ Database tables initialized");
+  } catch (err) {
+    console.error("❌ Database initialization error:", err.message);
+  }
+}
 // ==========================================
 // VOICE CHAT ENDPOINTS
 // ==========================================
@@ -687,7 +1001,59 @@ app.get("/api/users/available", authenticateToken, async (req, res) => {
   }
 });
 
+// Get call history
+app.get("/api/voice/history", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
 
+    const result = await pool.query(
+      `SELECT 
+        ch.*,
+        u.username as other_username
+       FROM call_history ch
+       JOIN users u ON (
+         CASE 
+           WHEN ch.caller_id = $1 THEN ch.receiver_id 
+           ELSE ch.caller_id 
+         END = u.id
+       )
+       WHERE ch.caller_id = $1 OR ch.receiver_id = $1
+       ORDER BY ch.created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+
+    const calls = result.rows.map(call => ({
+      ...call,
+      type: call.caller_id === userId ? 'outgoing' : 'incoming',
+      other_user_id: call.caller_id === userId ? call.receiver_id : call.caller_id
+    }));
+
+    res.json({ calls });
+  } catch (err) {
+    console.error("Get call history error:", err.message);
+    res.status(500).json({ error: "Failed to get call history" });
+  }
+});
+
+// Log call when ended
+app.post("/api/voice/log-call", authenticateToken, async (req, res) => {
+  try {
+    const { otherUserId, duration, status } = req.body;
+    const userId = req.user.userId;
+
+    await pool.query(
+      `INSERT INTO call_history (caller_id, receiver_id, duration, status, created_at)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [userId, otherUserId, duration || 0, status || 'completed']
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Log call error:", err.message);
+    res.status(500).json({ error: "Failed to log call" });
+  }
+});
 
 // ==========================================
 // CHAT ENDPOINTS - WhatsApp Style
