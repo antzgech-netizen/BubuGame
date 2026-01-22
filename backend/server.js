@@ -687,6 +687,180 @@ app.get("/api/users/available", authenticateToken, async (req, res) => {
   }
 });
 
+
+
+// ==========================================
+// CHAT ENDPOINTS - WhatsApp Style
+// ==========================================
+
+// Get all conversations for a user
+app.get("/api/chat/conversations", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    const result = await pool.query(
+      `SELECT DISTINCT
+        CASE 
+          WHEN c.user1_id = $1 THEN c.user2_id 
+          ELSE c.user1_id 
+        END as other_user_id,
+        u.username as other_username,
+        c.last_message_at,
+        (SELECT message FROM chat_messages_new 
+         WHERE conversation_id = c.id 
+         ORDER BY created_at DESC LIMIT 1) as last_message,
+        (SELECT COUNT(*) FROM chat_messages_new 
+         WHERE conversation_id = c.id 
+         AND sender_id != $1 
+         AND created_at > COALESCE(c.last_read_at, '1970-01-01')) as unread_count
+      FROM conversations c
+      JOIN users u ON (
+        CASE 
+          WHEN c.user1_id = $1 THEN c.user2_id 
+          ELSE c.user1_id 
+        END = u.id
+      )
+      WHERE c.user1_id = $1 OR c.user2_id = $1
+      ORDER BY c.last_message_at DESC`,
+      [userId]
+    );
+
+    res.json({ conversations: result.rows });
+  } catch (err) {
+    console.error("Get conversations error:", err.message);
+    res.status(500).json({ error: "Failed to get conversations" });
+  }
+});
+
+// Get messages for a specific conversation
+app.get("/api/chat/messages/:otherUserId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const otherUserId = parseInt(req.params.otherUserId);
+
+    // Get or create conversation
+    let conversation = await pool.query(
+      `SELECT id FROM conversations 
+       WHERE (user1_id = $1 AND user2_id = $2) 
+       OR (user1_id = $2 AND user2_id = $1)`,
+      [userId, otherUserId]
+    );
+
+    let conversationId;
+    if (conversation.rows.length === 0) {
+      // Create new conversation
+      const newConv = await pool.query(
+        `INSERT INTO conversations (user1_id, user2_id, last_message_at)
+         VALUES ($1, $2, NOW())
+         RETURNING id`,
+        [Math.min(userId, otherUserId), Math.max(userId, otherUserId)]
+      );
+      conversationId = newConv.rows[0].id;
+    } else {
+      conversationId = conversation.rows[0].id;
+    }
+
+    // Get messages
+    const messages = await pool.query(
+      `SELECT m.*, u.username 
+       FROM chat_messages_new m
+       JOIN users u ON m.sender_id = u.id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC
+       LIMIT 100`,
+      [conversationId]
+    );
+
+    res.json({ messages: messages.rows });
+  } catch (err) {
+    console.error("Get messages error:", err.message);
+    res.status(500).json({ error: "Failed to get messages" });
+  }
+});
+
+// Send a message
+app.post("/api/chat/send", authenticateToken, async (req, res) => {
+  try {
+    const { recipientId, message } = req.body;
+    const senderId = req.user.userId;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: "Message required" });
+    }
+
+// Add to initializeDatabase() function - create conversations table
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS conversations (
+    id SERIAL PRIMARY KEY,
+    user1_id INTEGER REFERENCES users(id),
+    user2_id INTEGER REFERENCES users(id),
+    last_message_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user1_id, user2_id)
+  )
+`);
+
+// Update chat_messages table to include conversation_id
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS chat_messages_new (
+    id SERIAL PRIMARY KEY,
+    conversation_id INTEGER REFERENCES conversations(id),
+    sender_id INTEGER REFERENCES users(id),
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
+
+console.log("✅ Conversations table created");
+
+
+    
+    // Get or create conversation
+    let conversation = await pool.query(
+      `SELECT id FROM conversations 
+       WHERE (user1_id = $1 AND user2_id = $2) 
+       OR (user1_id = $2 AND user2_id = $1)`,
+      [senderId, recipientId]
+    );
+
+    let conversationId;
+    if (conversation.rows.length === 0) {
+      const newConv = await pool.query(
+        `INSERT INTO conversations (user1_id, user2_id, last_message_at)
+         VALUES ($1, $2, NOW())
+         RETURNING id`,
+        [Math.min(senderId, recipientId), Math.max(senderId, recipientId)]
+      );
+      conversationId = newConv.rows[0].id;
+    } else {
+      conversationId = conversation.rows[0].id;
+      
+      // Update last message time
+      await pool.query(
+        `UPDATE conversations SET last_message_at = NOW() WHERE id = $1`,
+        [conversationId]
+      );
+    }
+
+    // Insert message
+    const result = await pool.query(
+      `INSERT INTO chat_messages_new (conversation_id, sender_id, message, created_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING id`,
+      [conversationId, senderId, message.trim()]
+    );
+
+    console.log(`💬 Message from ${senderId} to ${recipientId}`);
+    res.json({ success: true, messageId: result.rows[0].id });
+  } catch (err) {
+    console.error("Send message error:", err.message);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+
+
+
 // Test endpoint to see ALL users (for debugging)
 app.get("/api/users/all", authenticateToken, async (req, res) => {
   try {
