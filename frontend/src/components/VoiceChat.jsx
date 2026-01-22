@@ -20,20 +20,16 @@ export default function VoiceChat({ user, onClose }) {
   const remoteAudioRef = useRef(null);
   const callTimerRef = useRef(null);
 
-  // Improved ICE servers configuration
   const iceServers = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' }
-    ],
-    iceCandidatePoolSize: 10
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
   };
 
   useEffect(() => {
-    console.log('🎙️ VoiceChat mounted! User:', user);
+    console.log('🎙️ VoiceChat mounted');
     loadAvailableUsers();
     const interval = setInterval(checkIncomingCalls, 2000);
 
@@ -51,13 +47,12 @@ export default function VoiceChat({ user, onClose }) {
 
   const loadAvailableUsers = async () => {
     try {
-      console.log('🔍 Loading players...');
       const res = await fetch(`${API_URL}/api/gebeta/players`, {
         headers: getAuthHeaders()
       });
       
       if (!res.ok) {
-        setCallStatus(`Failed to load players (${res.status})`);
+        setCallStatus(`Failed to load players`);
         return;
       }
       
@@ -66,12 +61,12 @@ export default function VoiceChat({ user, onClose }) {
       
       setAvailableUsers(players);
       setCallStatus(players.length === 0 
-        ? 'No other players found' 
-        : `${players.length} player(s) available`
+        ? 'No other players online' 
+        : 'Select someone to call'
       );
     } catch (err) {
       console.error('Load players error:', err);
-      setCallStatus(`Error: ${err.message}`);
+      setCallStatus(`Error loading players`);
     }
   };
 
@@ -87,7 +82,7 @@ export default function VoiceChat({ user, onClose }) {
         playRingtone();
       }
     } catch (err) {
-      console.error('Check calls error:', err);
+      // Silent fail
     }
   };
 
@@ -100,9 +95,9 @@ export default function VoiceChat({ user, onClose }) {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       oscillator.frequency.value = 440;
-      gainNode.gain.value = 0.3;
+      gainNode.gain.value = 0.2;
       oscillator.start();
-      setTimeout(() => oscillator.stop(), 1000);
+      setTimeout(() => oscillator.stop(), 800);
     } catch (err) {
       console.error('Ringtone error:', err);
     }
@@ -113,7 +108,7 @@ export default function VoiceChat({ user, onClose }) {
     
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('🧊 ICE candidate:', event.candidate.type);
+        console.log('🧊 ICE candidate generated');
       }
     };
 
@@ -122,19 +117,19 @@ export default function VoiceChat({ user, onClose }) {
       if (pc.connectionState === 'connected') {
         setCallStatus('Connected');
         startCallTimer();
-      } else if (pc.connectionState === 'failed') {
-        setCallStatus('Connection failed');
-        endCall();
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        setCallStatus('Connection lost');
+        setTimeout(() => endCall(), 2000);
       }
     };
 
     pc.ontrack = (event) => {
-      console.log('🎵 Received remote track');
+      console.log('🎵 Received remote audio track');
       remoteStreamRef.current = event.streams[0];
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = event.streams[0];
         remoteAudioRef.current.play().catch(err => {
-          console.error('Autoplay error:', err);
+          console.log('Autoplay prevented - user interaction needed');
         });
       }
     };
@@ -162,7 +157,8 @@ export default function VoiceChat({ user, onClose }) {
     }
 
     try {
-      setCallStatus('Getting microphone...');
+      setCallStatus('Requesting microphone...');
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -177,7 +173,7 @@ export default function VoiceChat({ user, onClose }) {
         localAudioRef.current.srcObject = stream;
       }
 
-      setCallStatus('Connecting...');
+      setCallStatus('Setting up call...');
       const pc = setupPeerConnection();
       peerConnectionRef.current = pc;
 
@@ -185,12 +181,10 @@ export default function VoiceChat({ user, onClose }) {
         pc.addTrack(track, stream);
       });
 
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true
-      });
-      
+      const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      setCallStatus('Calling...');
       await fetch(`${API_URL}/api/voice/call`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -204,15 +198,29 @@ export default function VoiceChat({ user, onClose }) {
       checkCallStatus();
     } catch (err) {
       console.error('Start call error:', err);
-      setCallStatus(err.name === 'NotAllowedError' 
-        ? 'Microphone access denied' 
-        : 'Failed to start call');
+      if (err.name === 'NotAllowedError') {
+        setCallStatus('Microphone access denied. Please allow microphone access.');
+      } else {
+        setCallStatus('Failed to start call');
+      }
       endCall();
     }
   };
 
   const checkCallStatus = async () => {
+    let attempts = 0;
+    const maxAttempts = 30;
+    
     const interval = setInterval(async () => {
+      attempts++;
+      
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        setCallStatus('No answer');
+        endCall();
+        return;
+      }
+
       try {
         const res = await fetch(`${API_URL}/api/voice/call-status`, {
           headers: getAuthHeaders()
@@ -229,23 +237,13 @@ export default function VoiceChat({ user, onClose }) {
           setCallStatus('Connecting...');
         } else if (data.status === 'declined') {
           clearInterval(interval);
-          endCall();
           setCallStatus('Call declined');
-          setTimeout(() => setCallStatus('Select someone to call'), 3000);
+          endCall();
         }
       } catch (err) {
         console.error('Check status error:', err);
       }
     }, 1000);
-
-    setTimeout(() => {
-      clearInterval(interval);
-      if (!isCallActive) {
-        setCallStatus('No answer');
-        endCall();
-        setTimeout(() => setCallStatus('Select someone to call'), 3000);
-      }
-    }, 30000);
   };
 
   const answerCall = async () => {
@@ -253,6 +251,7 @@ export default function VoiceChat({ user, onClose }) {
 
     try {
       setCallStatus('Getting microphone...');
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -296,9 +295,11 @@ export default function VoiceChat({ user, onClose }) {
       setCallStatus('Connecting...');
     } catch (err) {
       console.error('Answer error:', err);
-      setCallStatus(err.name === 'NotAllowedError' 
-        ? 'Microphone access denied' 
-        : 'Failed to answer');
+      if (err.name === 'NotAllowedError') {
+        setCallStatus('Microphone access denied');
+      } else {
+        setCallStatus('Failed to answer');
+      }
       setIncomingCall(null);
     }
   };
@@ -352,7 +353,7 @@ export default function VoiceChat({ user, onClose }) {
         headers: getAuthHeaders()
       });
     } catch (err) {
-      console.error('End call error:', err);
+      // Silent fail
     }
 
     setIsCallActive(false);
@@ -425,7 +426,7 @@ export default function VoiceChat({ user, onClose }) {
               <option value="">
                 {availableUsers.length === 0 
                   ? 'No players available' 
-                  : `Select from ${availableUsers.length} player(s)`
+                  : 'Select a player'
                 }
               </option>
               {availableUsers.map(u => (
@@ -443,7 +444,6 @@ export default function VoiceChat({ user, onClose }) {
         </div>
       )}
 
-      {/* Audio elements - CRITICAL: autoPlay and playsInline for mobile */}
       <audio ref={localAudioRef} autoPlay muted playsInline />
       <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>
