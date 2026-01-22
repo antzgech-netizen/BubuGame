@@ -39,6 +39,171 @@
   opacity: 0.9;
 }
 
+/* Multiplayer Button */
+.multiplayer-btn {
+  display: block;
+  margin: 0 auto 1.5rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+
+.multiplayer-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+}
+
+/* Invite Panel */
+.invite-panel {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.invite-panel h4 {
+  color: white;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.invite-panel select {
+  width: 100%;
+  padding: 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.invite-panel select option {
+  background: #1e40af;
+  color: white;
+}
+
+.invite-panel button {
+  width: 100%;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1e3a8a;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.invite-panel button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.5);
+}
+
+.invite-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.invite-status {
+  color: #fbbf24;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+/* Incoming Invite Popup */
+.invite-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.invite-popup {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 2.5rem;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  min-width: 350px;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.invite-popup h3 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.invite-popup p {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.accept-btn,
+.decline-btn {
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.accept-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.accept-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+.decline-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.decline-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+}
+
 /* Car Selection */
 .car-selection {
   background: rgba(255, 255, 255, 0.1);
@@ -179,7 +344,7 @@
   text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
 }
 
-/* Race Track */
+/* Race Track - FIXED: Cars move, road stays still */
 .race-track {
   background: linear-gradient(to bottom, #374151 0%, #1f2937 100%);
   border-radius: 16px;
@@ -192,11 +357,11 @@
 
 .track-lane {
   position: relative;
-  height: 100px;
+  height: 120px;
   background: linear-gradient(to right, #4b5563 0%, #374151 50%, #4b5563 100%);
   border-radius: 12px;
   margin-bottom: 1.5rem;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -207,8 +372,7 @@
 .lane-label {
   position: absolute;
   left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 10px;
   background: rgba(0, 0, 0, 0.7);
   color: white;
   padding: 0.5rem 1rem;
@@ -218,6 +382,7 @@
   z-index: 10;
 }
 
+/* Fixed lane lines - stays in place */
 .lane-lines {
   position: absolute;
   top: 50%;
@@ -233,32 +398,46 @@
   );
   transform: translateY(-50%);
   opacity: 0.5;
-  animation: moveLanes 1s linear infinite;
+  /* Removed animation - road stays still */
 }
 
-@keyframes moveLanes {
-  0% { background-position: 0 0; }
-  100% { background-position: 60px 0; }
-}
-
+/* Cars move across the track */
 .race-car {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 3rem;
+  font-size: 3.5rem;
   transition: left 0.05s linear;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
-  animation: carShake 0.1s ease-in-out infinite;
+  z-index: 15;
 }
 
-@keyframes carShake {
-  0%, 100% { transform: translateY(-50%) rotate(0deg); }
-  25% { transform: translateY(-52%) rotate(-1deg); }
-  75% { transform: translateY(-48%) rotate(1deg); }
+/* Progress bars show race completion */
+.progress-bar {
+  position: absolute;
+  bottom: 5px;
+  left: 10px;
+  right: 10px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
-.player-car {
-  z-index: 5;
+.progress-fill {
+  height: 100%;
+  transition: width 0.1s linear;
+  border-radius: 4px;
+}
+
+.player-progress {
+  background: linear-gradient(90deg, #10b981, #059669);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+}
+
+.opponent-progress {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
 }
 
 .finish-line {
@@ -304,9 +483,6 @@
   transition: all 0.3s;
   box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
 
 .accelerate-btn:active:not(:disabled) {
@@ -353,6 +529,11 @@
   font-size: 3rem;
   margin-bottom: 1.5rem;
   animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 .result-details {
@@ -439,11 +620,11 @@
   }
 
   .track-lane {
-    height: 70px;
+    height: 80px;
   }
 
   .race-car {
-    font-size: 2rem;
+    font-size: 2.5rem;
   }
 
   .accelerate-btn {
