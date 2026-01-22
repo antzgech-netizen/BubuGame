@@ -386,81 +386,44 @@ body {
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
-/* Chat Toggle Button - Roblox Style */
-.chat-toggle-btn {
+/* WhatsApp Style Toggle Button */
+.whatsapp-toggle-btn {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
   padding: 1.2rem 2rem;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #128c7e, #075e54);
   color: white;
   border: none;
   border-radius: 50px;
   cursor: pointer;
   font-weight: 800;
   font-size: 1.1rem;
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 8px 25px rgba(18, 140, 126, 0.4);
   transition: all 0.3s;
   z-index: 100;
-  animation: pulse 2s ease-in-out infinite;
+  animation: whatsappPulse 2s ease-in-out infinite;
+  position: relative;
 }
 
-@keyframes pulse {
+@keyframes whatsappPulse {
   0%, 100% {
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 8px 25px rgba(18, 140, 126, 0.4);
   }
   50% {
-    box-shadow: 0 8px 35px rgba(16, 185, 129, 0.6);
+    box-shadow: 0 8px 35px rgba(18, 140, 126, 0.6);
   }
 }
 
-.chat-toggle-btn:hover {
+.whatsapp-toggle-btn:hover {
   transform: scale(1.1) translateY(-3px);
-  box-shadow: 0 12px 35px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 12px 35px rgba(18, 140, 126, 0.6);
+  background: linear-gradient(135deg, #075e54, #054d45);
 }
 
-.chat-toggle-btn.active {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+.whatsapp-toggle-btn.active {
+  background: linear-gradient(135deg, #25d366, #20ba5a);
   animation: none;
-}
-
-/* Voice Toggle Button - Roblox Style */
-.voice-toggle-btn {
-  position: fixed;
-  bottom: 2rem;
-  right: 12rem;
-  padding: 1.2rem 2rem;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: white;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 1.1rem;
-  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
-  transition: all 0.3s;
-  z-index: 100;
-}
-
-.voice-toggle-btn:hover {
-  transform: scale(1.1) translateY(-3px);
-  box-shadow: 0 12px 35px rgba(245, 158, 11, 0.6);
-}
-
-.voice-toggle-btn.active {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  animation: voicePulse 1s ease-in-out infinite;
-}
-
-@keyframes voicePulse {
-  0%, 100% {
-    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.5);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 8px 40px rgba(220, 38, 38, 0.8);
-    transform: scale(1.05);
-  }
 }
 
 .unread-badge {
