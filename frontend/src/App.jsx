@@ -4,8 +4,7 @@ import GebetaGame from './games/GebetaGame';
 import TicTacToe from './games/TicTacToe';
 import MemoryMatch from './games/MemoryMatch';
 import RacingGame from './games/RacingGame';
-import ChatBox from './components/ChatBox';
-import VoiceChat from './components/VoiceChat';
+import WhatsAppStyle from './components/WhatsAppStyle';
 import LoginScreen from './components/LoginScreen';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -13,14 +12,28 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 export default function App() {
   const [user, setUser] = useState(null);
   const [currentGame, setCurrentGame] = useState(null);
-  const [showChat, setShowChat] = useState(false);
-  const [showVoice, setShowVoice] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem('game_token');
     if (token) {
       fetchUser();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      // Check for unread messages periodically
+      const interval = setInterval(checkUnreadMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
   }, []);
 
@@ -40,6 +53,24 @@ export default function App() {
       }
     } catch (err) {
       console.error('Fetch user error:', err);
+    }
+  };
+
+  const checkUnreadMessages = async () => {
+    const token = localStorage.getItem('game_token');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/chat/conversations`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const total = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+        setUnreadCount(total);
+      }
+    } catch (err) {
+      // Silent fail
     }
   };
 
@@ -132,7 +163,7 @@ export default function App() {
             <div className="welcome-message">
               <h3>👨‍👦 Welcome to Our Game Room!</h3>
               <p>🎮 Pick a game and have fun together!</p>
-              <p>💬 Chat and 🎙️ voice call while playing!</p>
+              <p>💬 Use WhatsApp to chat and call anytime!</p>
               <p>🪙 Earn coins by winning games!</p>
             </div>
           </div>
@@ -177,57 +208,23 @@ export default function App() {
         )}
       </main>
 
-      {/* Chat Toggle Button */}
+      {/* WhatsApp Style Button - Combined Chat & Calls */}
       <button 
-        className={`chat-toggle-btn ${showChat ? 'active' : ''}`}
-        onClick={() => {
-          setShowChat(!showChat);
-          if (!showChat) setUnreadMessages(0);
-        }}
+        className={`whatsapp-toggle-btn ${showWhatsApp ? 'active' : ''}`}
+        onClick={() => setShowWhatsApp(!showWhatsApp)}
       >
-        💬 Chat
-        {unreadMessages > 0 && (
-          <span className="unread-badge">{unreadMessages}</span>
+        💬 WhatsApp
+        {unreadCount > 0 && (
+          <span className="unread-badge">{unreadCount}</span>
         )}
       </button>
 
-      {/* Voice Chat Toggle Button */}
-      <button 
-        className={`voice-toggle-btn ${showVoice ? 'active' : ''}`}
-        onClick={() => {
-          console.log('🎙️ Voice button clicked! Current state:', showVoice);
-          setShowVoice(!showVoice);
-          console.log('🎙️ Voice panel should now be:', !showVoice ? 'OPEN' : 'CLOSED');
-        }}
-      >
-        🎙️ Voice
-      </button>
-
-      {/* Chat Panel */}
-      {showChat && (
-        <ChatBox 
+      {/* WhatsApp Style Panel */}
+      {showWhatsApp && (
+        <WhatsAppStyle 
           user={user} 
-          onClose={() => setShowChat(false)}
-          onNewMessage={() => {
-            if (!showChat) {
-              setUnreadMessages(prev => prev + 1);
-            }
-          }}
+          onClose={() => setShowWhatsApp(false)}
         />
-      )}
-
-      {/* Voice Chat Panel */}
-      {showVoice && (
-        <>
-          {console.log('✅ Rendering VoiceChat panel')}
-          <VoiceChat 
-            user={user} 
-            onClose={() => {
-              console.log('🚪 Closing voice chat');
-              setShowVoice(false);
-            }}
-          />
-        </>
       )}
     </div>
   );
